@@ -294,7 +294,7 @@ pipeline{
         }
         stage('Checkout from Git'){
             steps{
-                git branch: 'main', url: 'https://github.com/N4si/DevSecOps-Project.git'
+                git branch: 'main', url: 'https://github.com/Pavangowda73/Netflix.git'
             }
         }
         stage("Sonarqube Analysis "){
@@ -308,19 +308,13 @@ pipeline{
         stage("quality gate"){
            steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
                 }
             } 
         }
         stage('Install Dependencies') {
             steps {
                 sh "npm install"
-            }
-        }
-        stage('OWASP FS SCAN') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
         stage('TRIVY FS SCAN') {
@@ -332,25 +326,58 @@ pipeline{
             steps{
                 script{
                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
-                       sh "docker build --build-arg TMDB_V3_API_KEY=<yourapikey> -t netflix ."
-                       sh "docker tag netflix nasi101/netflix:latest "
-                       sh "docker push nasi101/netflix:latest "
+                       sh "docker build --build-arg TMDB_V3_API_KEY=a781eba4b836489cfe4e165f9df38014 -t netflix ."
+                       sh "docker tag netflix pavan73384/netflix:latest "
+                       sh "docker push pavan73384/netflix:latest "
                     }
                 }
             }
         }
         stage("TRIVY"){
             steps{
-                sh "trivy image nasi101/netflix:latest > trivyimage.txt" 
+                sh "trivy image pavan73384/netflix:latest > trivyimage.txt" 
             }
         }
         stage('Deploy to container'){
             steps{
-                sh 'docker run -d --name netflix -p 8081:80 nasi101/netflix:latest'
+                sh 'docker run -d -p 8081:80 pavan73384/netflix:latest'
             }
         }
     }
+    post {
+always {
+script {
+def jobName = env.JOB_NAME
+def buildNumber = env.BUILD_NUMBER
+def pipelineStatus = currentBuild.result ?: 'UNKNOWN'
+def bannerColor = pipelineStatus.toUpperCase() == 'SUCCESS' ? 'green' : 'red'
+def body = """
+<html>
+<body>
+<div style="border: 4px solid ${bannerColor}; padding: 10px;">
+<h2>${jobName} - Build ${buildNumber}</h2>
+<div style="background-color: ${bannerColor}; padding: 10px;">
+<h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
+</div>
+<p>Check the <a href="${env.BUILD_URL}">console output</a>.</p>
+</div>
+</body>
+</html>
+"""
+emailext (
+subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
+body: body,
+to: 'pavanpavan073384@gmail.com',
+from: 'jenkins@example.com',
+replyTo: 'jenkins@example.com',
+mimeType: 'text/html',
+attachmentsPattern: 'trivyimage.txt'
+)
 }
+}
+}
+}
+
 
 
 If you get docker login failed errorr
